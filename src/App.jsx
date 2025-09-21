@@ -8,6 +8,7 @@ import TV from "./pages/TV";
 import Movies from "./pages/Movies";
 import MyList from "./pages/MyList";
 
+
 function App() {
   return (
     <BrowserRouter>

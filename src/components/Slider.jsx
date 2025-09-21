@@ -4,6 +4,7 @@ import { fetchMoviesByCategory, getGenres } from "../store";
 import { TMDB_BASE_URL, API_KEY } from "../utils/constants";
 import CardSlider from "./CardSlider";
 
+
 const categories = {
   trending: `${TMDB_BASE_URL}/movie/popular?api_key=${API_KEY}`, // Changed from trending/all/week
   newReleases: `${TMDB_BASE_URL}/movie/now_playing?api_key=${API_KEY}`,
@@ -45,11 +46,12 @@ function Slider() {
 
   return (
     <>
-      <CardSlider title="Trending" data={moviesByCategory?.trending || moviesByCategory?.newReleases || []} />
-      <CardSlider title="New Releases" data={moviesByCategory?.newReleases || []} />
-      <CardSlider title="Blockbuster Movies" data={moviesByCategory?.blockbuster || []} />
-      <CardSlider title="Action Movies" data={moviesByCategory?.action || []} />
-      <CardSlider title="Epics" data={moviesByCategory?.epics || []} />
+      <CardSlider title="Trending" data={moviesByCategory?.trending || []} />
+<CardSlider title="New Releases" data={moviesByCategory?.newReleases || []} />
+<CardSlider title="Blockbuster Movies" data={moviesByCategory?.blockbuster || []} />
+<CardSlider title="Action Movies" data={moviesByCategory?.action || []} />
+<CardSlider title="Epics" data={moviesByCategory?.epics || []} />
+
     </>
   );
 }
