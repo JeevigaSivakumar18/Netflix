@@ -3,35 +3,24 @@ import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import video from "../assets/video.mp4";
 import { IoPlayCircleSharp } from "react-icons/io5";
-import { RiThumbUpFill } from "react-icons/ri";
-import { BsCheck } from "react-icons/bs";
 import { AiOutlinePlus } from "react-icons/ai";
 import { BiChevronDown } from "react-icons/bi";
 import { useDispatch, useSelector } from "react-redux";
-import { removeFromLikedMovies, addToLikedMovies } from "../store";
+import { addToListAsync, removeFromListAsync } from "../store/myListSlice";
 
-export default React.memo(function Card({ movieData }) {
+export default function Card({ movieData }) {
   const [isHovered, setIsHovered] = useState(false);
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const myList = useSelector((state) => state.myList);
+  const inList = myList.some((m) => m.id === movieData.id);
 
-  // Get liked movies from redux store
-  const likedMovies = useSelector((state) => state.netflix.likedMovies || []);
+  // Local add/remove is handled inline on the button to provide immediate feedback
 
-  // Check if current movie is already liked
-  const isLiked = likedMovies.some((movie) => movie.id === movieData.id);
-
-  // Toggle add/remove from liked list
-  const handleLikeToggle = () => {
-    if (isLiked) {
-      dispatch(removeFromLikedMovies(movieData.id));
-    } else {
-      dispatch(addToLikedMovies(movieData));
-    }
-  };
-
-  const imageUrl = movieData.poster
-    ? `https://image.tmdb.org/t/p/w500${movieData.poster}`
+  // Support both TMDB-style and our Firestore normalized fields
+  const posterPath = movieData.poster_path || movieData.poster || movieData.backdrop;
+  const imageUrl = posterPath
+    ? (posterPath.startsWith("http") ? posterPath : `https://image.tmdb.org/t/p/w500${posterPath}`)
     : "https://via.placeholder.com/200x300?text=No+Image";
 
   return (
@@ -39,14 +28,14 @@ export default React.memo(function Card({ movieData }) {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <img src={imageUrl} alt={movieData.name} />
+      <img src={imageUrl} alt={movieData.name || movieData.title} />
 
       {isHovered && (
         <div className="hover">
           <div className="image-video-container">
             <img
               src={imageUrl}
-              alt={movieData.name}
+              alt={movieData.name || movieData.title}
               onClick={() => navigate("/player")}
             />
             <video
@@ -57,34 +46,62 @@ export default React.memo(function Card({ movieData }) {
               onClick={() => navigate("/player")}
             ></video>
           </div>
-          <div className="info-container flex container">
+
+          <div className="info-container flex container" style={{position : "absolute", bottom : "-10px"}}>
             <h3 className="name" onClick={() => navigate("/player")}>
-              {movieData.name}
+              {movieData.name || movieData.title}
             </h3>
-            <div className="icons flex j-between">
-              <div className="controls flex">
-                <IoPlayCircleSharp
-                  title="Play"
-                  onClick={() => navigate("/player")}
-                />
-                <RiThumbUpFill title="Like" />
-                <RiThumbUpFill title="Dislike" />
-                {isLiked ? (
-                  <BsCheck title="Remove From List" onClick={handleLikeToggle} />
-                ) : (
-                  <AiOutlinePlus title="Add to My List" onClick={handleLikeToggle} />
-                )}
-              </div>
-              <div className="info">
-                <BiChevronDown
-                  title="More Info"
-                  onClick={() => navigate("/player")}
-                />
-              </div>
+
+            <div className="controls flex j-between">
+              {/* Play button */}
+              <button
+                className="btn play-btn"
+                onClick={() => {
+                  // navigate to player with movie data in state
+                  navigate("/player", { state: { movie: movieData } });
+                }}
+                aria-label="Play"
+              >
+                <IoPlayCircleSharp />
+                <span>Play</span>
+              </button>
+
+              {/* More info button */}
+              <button
+                className="btn info-btn"
+                onClick={() => navigate("/player", { state: { movie: movieData } })}
+                aria-label="More info"
+              >
+                <BiChevronDown />
+                <span>Info</span>
+              </button>
+
+              {/* Add / Remove from My List button */}
+              <button
+                className="btn list-btn"
+                onClick={() => {
+                  if (inList) {
+                    dispatch(removeFromListAsync(movieData.id));
+                    try {
+                      window.dispatchEvent(new CustomEvent("myListLocal", { detail: { action: "removed", name: movieData.name || movieData.title } }));
+                    } catch (e) {}
+                  } else {
+                    dispatch(addToListAsync(movieData));
+                    try {
+                      window.dispatchEvent(new CustomEvent("myListLocal", { detail: { action: "added", name: movieData.name || movieData.title } }));
+                    } catch (e) {}
+                  }
+                }}
+                aria-label="Add to My List"
+              >
+                <AiOutlinePlus />
+                <span>{inList ? "Remove" : "My List"}</span>
+              </button>
             </div>
+
             <div className="genres flex">
               <ul className="flex">
-                {movieData.genres.map((genre) => (
+                {movieData.genres?.map((genre) => (
                   <li key={genre}>{genre}</li>
                 ))}
               </ul>
@@ -95,7 +112,6 @@ export default React.memo(function Card({ movieData }) {
     </Container>
   );
 }
-)
 
 const Container = styled.div`
   max-width: 230px;
@@ -113,7 +129,7 @@ const Container = styled.div`
 
   .hover {
     position: absolute;
-    top: -120px; /* adjust how high it floats */
+    top: -120px;
     left: -60px;
     width: 320px;
     height: 360px;
@@ -122,11 +138,10 @@ const Container = styled.div`
     box-shadow: rgba(0, 0, 0, 0.75) 0px 3px 15px;
     z-index: 99;
     overflow: hidden;
-
     transform: scale(0.9);
     opacity: 0;
     transition: all 0.3s ease-in-out;
-    pointer-events: none;
+    pointer-events: auto;
   }
 
   &:hover .hover {
@@ -150,6 +165,7 @@ const Container = styled.div`
       position: absolute;
       top: 0;
       left: 0;
+      pointer-events: none; /* prevent video/image from blocking clicks */
     }
 
     video {
@@ -162,6 +178,8 @@ const Container = styled.div`
     display: flex;
     flex-direction: column;
     gap: 0.7rem;
+    position: relative;
+    z-index: 10;
 
     h3 {
       font-size: 1rem;
@@ -170,24 +188,35 @@ const Container = styled.div`
       cursor: pointer;
     }
 
-    .icons {
+    .controls {
       display: flex;
-      justify-content: space-between;
+      gap: 0.5rem;
       align-items: center;
+      pointer-events: auto; /* enable clicks on icons */
+    }
 
-      .controls {
-        display: flex;
-        gap: 1rem;
-      }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.3rem 0.5rem;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: white;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .btn span { font-size: 0.85rem; }
 
-      svg {
-        font-size: 1.5rem;
-        cursor: pointer;
-        transition: 0.2s ease-in-out;
+    svg {
+      font-size: 1.5rem;
+      cursor: pointer;
+      transition: 0.2s ease-in-out;
+      pointer-events: auto;
 
-        &:hover {
-          color: #b3b3b3;
-        }
+      &:hover {
+        color: #b3b3b3;
       }
     }
 
@@ -206,8 +235,3 @@ const Container = styled.div`
     }
   }
 `;
-
-
-
-
-

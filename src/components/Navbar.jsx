@@ -17,12 +17,37 @@ function Navbar({ isScrolled }) {
   const navigate = useNavigate();
   const [showSearch, setShowSearch] = React.useState(false);
   const [inputHover, setInputHover] = React.useState(false);
+  const [toast, setToast] = React.useState(null);
 
   React.useEffect(() => {
     onAuthStateChanged(firebaseAuth, (currentUser) => {
       if (!currentUser) navigate("/login");
     });
   }, [navigate]);
+
+  // listen for myList sync notifications from the store subscriber
+  React.useEffect(() => {
+    const handler = (e) => {
+      const { success, error } = e.detail || {};
+      if (success) setToast({ type: "success", message: "My List saved to server" });
+      else setToast({ type: "error", message: `Failed to save My List: ${error || 'Unknown'}` });
+      setTimeout(() => setToast(null), 3000);
+    };
+    window.addEventListener("myListSync", handler);
+    // also listen for local add/remove events
+    const localHandler = (e) => {
+      const { action, name } = e.detail || {};
+      if (action === "added") setToast({ type: "info", message: `${name} added to My List` });
+      else if (action === "removed") setToast({ type: "info", message: `${name} removed from My List` });
+      setTimeout(() => setToast(null), 2500);
+    };
+    window.addEventListener("myListLocal", localHandler);
+
+    return () => {
+      window.removeEventListener("myListSync", handler);
+      window.removeEventListener("myListLocal", localHandler);
+    };
+  }, []);
 
   return (
     <Container>
@@ -68,6 +93,11 @@ function Navbar({ isScrolled }) {
             </button>
           </div>
         </div>
+        {toast && (
+          <div className={`toast ${toast.type}`}>
+            {toast.message}
+          </div>
+        )}
       </nav>
     </Container>
   );
@@ -89,6 +119,18 @@ const Container = styled.div`
     transition: background-color 0.3s ease-in-out;
     background: black; /* ✅ always black like before */
   }
+  .toast {
+    position: fixed;
+    right: 1rem;
+    top: 6.8rem;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    z-index: 2000;
+    color: white;
+    font-weight: 600;
+  }
+  .toast.success { background: #28a745; }
+  .toast.error { background: #dc3545; }
 
   .left {
     display: flex;

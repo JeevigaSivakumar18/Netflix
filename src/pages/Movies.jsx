@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { fetchMovies, getGenres } from "../store";
+import { getGenres, fetchMoviesFromFirestore } from "../store";
 import { onAuthStateChanged } from "firebase/auth";
 import { firebaseAuth } from "../utils/firebase-config";
 import Navbar from "../components/Navbar";
@@ -14,9 +14,8 @@ import SelectGenre from "../components/SelectGenre";
 function Movies() {
   const [isScrolled, setIsScrolled] = useState(false);
   const navigate = useNavigate();
-  const genresLoaded = useSelector((state) => state.netflix.genresLoaded);
   const movies = useSelector((state) => state.netflix.movies);
-   const genres = useSelector((state) => state.netflix.genres);
+  const genres = useSelector((state) => state.genre.genres);
   const dispatch = useDispatch();
 
   useEffect(() => {
@@ -24,10 +23,9 @@ function Movies() {
   }, [dispatch]);
 
   useEffect(() => {
-    if (genresLoaded) {
-      dispatch(fetchMovies({ type: "movies" }));
-    }
-  }, [genresLoaded, dispatch]);
+    // Load movies from Firestore
+    dispatch(fetchMoviesFromFirestore());
+  }, [dispatch, genres]);
 
   useEffect(() => {
     onAuthStateChanged(firebaseAuth, (currentUser) => {

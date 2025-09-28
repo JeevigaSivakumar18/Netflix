@@ -8,6 +8,7 @@ import React, { useState , useEffect } from "react";
 import styled from "styled-components";
 import BackgroundImage from "../components/BackgroundImage";
 import Header from "../components/Header";
+
 import { signOut } from "firebase/auth";
 
 function Signup() {

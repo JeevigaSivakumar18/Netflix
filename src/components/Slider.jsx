@@ -1,57 +1,42 @@
-import React, { useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { fetchMoviesByCategory, getGenres } from "../store";
-import { TMDB_BASE_URL, API_KEY } from "../utils/constants";
+import React from "react";
+import { useSelector } from "react-redux";
 import CardSlider from "./CardSlider";
+import Loading from "./Loading";
+import ErrorMessage from "./ErrorMessage";
 
 
-const categories = {
-  trending: `${TMDB_BASE_URL}/movie/popular?api_key=${API_KEY}`, // Changed from trending/all/week
-  newReleases: `${TMDB_BASE_URL}/movie/now_playing?api_key=${API_KEY}`,
-  blockbuster: `${TMDB_BASE_URL}/movie/top_rated?api_key=${API_KEY}`, // Changed from popular
-  action: `${TMDB_BASE_URL}/discover/movie?api_key=${API_KEY}&with_genres=28`,
-  epics: `${TMDB_BASE_URL}/discover/movie?api_key=${API_KEY}&with_genres=36`,
-};
+// categories constant removed — we derive categories from Firestore-loaded movies
 
 function Slider() {
-  const dispatch = useDispatch();
-  const { moviesByCategory, genresLoaded } = useSelector(
-    (state) => state.netflix
-  );
+  const movies = useSelector((state) => state.netflix.movies);
+  const loading = useSelector((state) => state.netflix.loading);
+  const error = useSelector((state) => state.netflix.error);
 
-  useEffect(() => {
-    console.log("Starting fetch...");
-    console.log("API_KEY defined:", !!API_KEY);
-    dispatch(getGenres()).then(() => {
-      console.log("Genres loaded, fetching categories...");
-      Object.entries(categories).forEach(([category, url]) => {
-        console.log(`Fetching ${category} from:`, url);
-        dispatch(fetchMoviesByCategory({ category, url }))
-          .then((result) => {
-            console.log(`${category} fetch result:`, result);
-          })
-          .catch((error) => {
-            console.error(`${category} fetch error:`, error);
-          });
-      });
-    });
-  }, [dispatch]);
+  // Previously this component fetched multiple categories via external API.
+  // With Firestore as the single backend we instead derive simple category
+  // slices from the loaded `movies` array.
 
   // Debug log to see what data we have
-  console.log("Movies by category:", moviesByCategory);
-  console.log("Trending data specifically:", moviesByCategory?.trending);
-  console.log("Trending length:", moviesByCategory?.trending?.length);
-  console.log("First trending movie:", moviesByCategory?.trending?.[0]);
-  console.log("Genres loaded:", genresLoaded);
+  // minimal debug
+  // console.log("Movies by category:", moviesByCategory);
+
+  // derive simple categories from the firestore-loaded movies
+  const all = Array.isArray(movies) ? movies : [];
+  const trending = all.slice(0, 10);
+  const newReleases = all.slice(10, 20);
+  const blockbuster = all.slice(20, 30);
+  const action = all.filter((m) => (m.genres || []).includes("Action")).slice(0, 10);
+  const epics = all.filter((m) => (m.genres || []).includes("Epic")).slice(0, 10);
 
   return (
     <>
-      <CardSlider title="Trending" data={moviesByCategory?.trending || []} />
-<CardSlider title="New Releases" data={moviesByCategory?.newReleases || []} />
-<CardSlider title="Blockbuster Movies" data={moviesByCategory?.blockbuster || []} />
-<CardSlider title="Action Movies" data={moviesByCategory?.action || []} />
-<CardSlider title="Epics" data={moviesByCategory?.epics || []} />
-
+      {loading && <Loading />}
+      {error && <ErrorMessage message={error} />}
+      <CardSlider title="Trending" data={trending} />
+      <CardSlider title="New Releases" data={newReleases} />
+      <CardSlider title="Blockbuster Movies" data={blockbuster} />
+      <CardSlider title="Action Movies" data={action} />
+      <CardSlider title="Epics" data={epics} />
     </>
   );
 }

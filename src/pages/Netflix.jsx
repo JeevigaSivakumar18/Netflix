@@ -8,36 +8,48 @@ import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { getGenres } from "../store";
+import { getGenres, fetchMoviesFromFirestore } from "../store";
 import { useSelector } from "react-redux";
-import { fetchMovies } from "../store";
 import Slider from "../components/Slider";
-
-
+import Loading from "../components/Loading";
+import ErrorMessage from "../components/ErrorMessage";
+import SeedFirebase from "../components/SeedFirebase";
 export default function Netflix() {
   const [isScrolled, setIsScrolled] = useState(false);
   const navigate = useNavigate();
-  const genresLoaded = useSelector((state)=>state.netflix.genresLoaded);
+  // genres are available via global state if needed
   const dispatch = useDispatch();
   const movies = useSelector((state)=>state.netflix.movies);
+  const loading = useSelector((state) => state.netflix.loading);
+  const error = useSelector((state) => state.netflix.error);
 
+  // Fetch genres once on mount
   useEffect(() => {
     dispatch(getGenres());
-  },[dispatch , genresLoaded]);
+  }, [dispatch]);
 
+  // When genres are loaded (from genre slice), fetch movies once
   useEffect(() => {
-    if(genresLoaded) dispatch(fetchMovies({type : "all"}))
-  });
+    // Load movies from Firestore once genres are loaded (or on mount)
+    dispatch(fetchMoviesFromFirestore());
+  }, [dispatch]);
 
-  window.onscroll = () => {
-    setIsScrolled(window.pageYOffset === 0 ? false : true);
-    return () => (window.onscroll = null);
-  };
+  // Handle scroll state with proper event listener
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.pageYOffset !== 0);
+    window.addEventListener("scroll", handleScroll);
+    // set initial value
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   console.log(movies);
 
   return (
-    <Container>
+  <Container>
+  <SeedFirebase />
+  {loading && <Loading />}
+  {error && <ErrorMessage message={error} />}
     <div>
       <Navbar isScrolled = {isScrolled}/>
       <div className="hero">
