@@ -1,23 +1,46 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import styled from "styled-components";
 import { Link, useNavigate } from "react-router-dom";
 import logo from "../assets/logo.png";
-import { FaSearch, FaPowerOff } from "react-icons/fa";
+import { FaPowerOff, FaCaretDown } from "react-icons/fa";
 import { firebaseAuth } from "../utils/firebase-config";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 
 function Navbar({ isScrolled }) {
   const links = [
     { name: "Home", link: "/" },
-    { name: "TV Shows", link: "/tv" },
+    //{ name: "TV Shows", link: "/tv" },
     { name: "Movies", link: "/movies" },
     { name: "My List", link: "/mylist" },
+    { name: "Feeling Lucky", link: "/feeling-lucky" },
+  ];
+
+  const games = [
+    { name: "Scene Shuffle", link: "/scene-shuffle" },
+    { name: "Guess the Movie", link: "/guess-the-movie" },
+    { name: "Movie Trivia", link: "/movie-trivia" },
+    { name: "Random Scene", link: "/random-scene" },
   ];
 
   const navigate = useNavigate();
-  const [showSearch, setShowSearch] = React.useState(false);
-  const [inputHover, setInputHover] = React.useState(false);
-  const [toast, setToast] = React.useState(null);
+  const [toast, setToast] = useState(null);
+  const [gamesOpen, setGamesOpen] = useState(false);
+  
+  const dropdownRef = useRef(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setGamesOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   React.useEffect(() => {
     onAuthStateChanged(firebaseAuth, (currentUser) => {
@@ -25,29 +48,13 @@ function Navbar({ isScrolled }) {
     });
   }, [navigate]);
 
-  // listen for myList sync notifications from the store subscriber
-  React.useEffect(() => {
-    const handler = (e) => {
-      const { success, error } = e.detail || {};
-      if (success) setToast({ type: "success", message: "My List saved to server" });
-      else setToast({ type: "error", message: `Failed to save My List: ${error || 'Unknown'}` });
-      setTimeout(() => setToast(null), 3000);
-    };
-    window.addEventListener("myListSync", handler);
-    // also listen for local add/remove events
-    const localHandler = (e) => {
-      const { action, name } = e.detail || {};
-      if (action === "added") setToast({ type: "info", message: `${name} added to My List` });
-      else if (action === "removed") setToast({ type: "info", message: `${name} removed from My List` });
-      setTimeout(() => setToast(null), 2500);
-    };
-    window.addEventListener("myListLocal", localHandler);
+  const toggleGamesDropdown = () => {
+    setGamesOpen(!gamesOpen);
+  };
 
-    return () => {
-      window.removeEventListener("myListSync", handler);
-      window.removeEventListener("myListLocal", localHandler);
-    };
-  }, []);
+  const handleGamesLinkClick = () => {
+    setGamesOpen(false);
+  };
 
   return (
     <Container>
@@ -62,37 +69,39 @@ function Navbar({ isScrolled }) {
                 <Link to={link}>{name}</Link>
               </li>
             ))}
+
+            {/* Games Dropdown */}
+            <li className="games-dropdown" ref={dropdownRef}>
+              <span 
+                className="games-title" 
+                onClick={toggleGamesDropdown}
+              >
+                Games <FaCaretDown className={`dropdown-arrow ${gamesOpen ? "open" : ""}`} />
+              </span>
+              {gamesOpen && (
+                <ul className="dropdown">
+                  {games.map(({ name, link }) => (
+                    <li key={name}>
+                      <Link to={link} onClick={handleGamesLinkClick}>{name}</Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
           </ul>
         </div>
+
         <div className="right flex a-center">
-          <div className={`search ${showSearch ? "show" : ""}`}>
-            <button
-              onFocus={() => setShowSearch(true)}
-              onBlur={() => {
-                if (!inputHover) setShowSearch(false);
-              }}
-            >
-              <FaSearch />
-            </button>
-            <input
-              type="text"
-              placeholder="Search"
-              onMouseEnter={() => setInputHover(true)}
-              onMouseLeave={() => setInputHover(false)}
-              onBlur={() => {
-                setShowSearch(false);
-                setInputHover(false);
-              }}
-            />
-            <button
-              onClick={() => {
-                signOut(firebaseAuth);
-              }}
-            >
-              <FaPowerOff />
-            </button>
-          </div>
+          <button
+            className="logout-btn"
+            onClick={() => {
+              signOut(firebaseAuth);
+            }}
+          >
+            <FaPowerOff />
+          </button>
         </div>
+
         {toast && (
           <div className={`toast ${toast.type}`}>
             {toast.message}
@@ -109,51 +118,120 @@ const Container = styled.div`
   nav {
     position: fixed;
     top: 0;
-    height: 6.5rem;
+    height: 68px;
     width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 4rem;
+    padding: 0 4%;
     z-index: 10;
     transition: background-color 0.3s ease-in-out;
-    background: black; /* ✅ always black like before */
+    background: ${props => props.isScrolled ? 'rgba(0, 0, 0, 0.9)' : 'transparent'};
+    background-image: ${props => props.isScrolled ? 'none' : 'linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 10%, rgba(0, 0, 0, 0))'};
   }
-  .toast {
-    position: fixed;
-    right: 1rem;
-    top: 6.8rem;
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    z-index: 2000;
-    color: white;
-    font-weight: 600;
+
+  .scrolled {
+    background: rgba(0, 0, 0, 0.9);
   }
-  .toast.success { background: #28a745; }
-  .toast.error { background: #dc3545; }
 
   .left {
     display: flex;
     align-items: center;
-    gap: 2rem;
+    flex: 1;
+  }
 
-    .brand img {
-      height: 2.5rem;
+  .brand {
+    margin-right: 35px;
+    
+    img {
+      height: 30px;
+      width: auto;
+    }
+  }
+
+  .links {
+    list-style: none;
+    display: flex;
+    gap: 25px;
+    margin: 0;
+    padding: 0;
+    align-items: center;
+
+    li {
+      position: relative;
+
+      a, .games-title {
+        color: #e5e5e5;
+        text-decoration: none;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: color 0.3s ease-in-out;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 0;
+      }
+
+      &:hover a, &:hover .games-title {
+        color: #b3b3b3;
+      }
     }
 
-    .links {
-      list-style-type: none;
-      display: flex;
-      gap: 2rem;
+    .games-dropdown {
+      position: relative;
+      
+      .dropdown-arrow {
+        font-size: 14px;
+        transition: transform 0.3s ease;
+        
+        &.open {
+          transform: rotate(180deg);
+        }
+      }
 
-      li a {
-        color: white; /* ✅ white links restored */
-        text-decoration: none;
-        font-weight: 500;
-        transition: 0.3s ease-in-out;
+      .dropdown {
+        position: absolute;
+        top: 100%;
+        left: -10px;
+        background: rgba(0, 0, 0, 0.9);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        list-style: none;
+        padding: 10px 0;
+        margin-top: 12px;
+        min-width: 200px;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        z-index: 1000;
 
-        &:hover {
-          color: #b3b3b3;
+        &::before {
+          content: '';
+          position: absolute;
+          top: -6px;
+          left: 20px;
+          width: 0;
+          height: 0;
+          border-left: 6px solid transparent;
+          border-right: 6px solid transparent;
+          border-bottom: 6px solid rgba(255, 255, 255, 0.1);
+        }
+
+        li a {
+          padding: 10px 18px;
+          width: 100%;
+          display: block;
+          font-size: 15px;
+          color: #e5e5e5;
+          white-space: nowrap;
+          text-decoration: none;
+
+          &:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+          }
         }
       }
     }
@@ -162,44 +240,41 @@ const Container = styled.div`
   .right {
     display: flex;
     align-items: center;
-    gap: 1rem;
+  }
 
-    .search {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      position: relative;
+  .logout-btn {
+    background: transparent;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: color 0.3s ease;
 
-      button {
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        color: white;
-        font-size: 1.2rem;
+    &:hover {
+      color: #b3b3b3;
+    }
+  }
 
-        &:hover {
-          color: #b3b3b3;
-        }
-      }
+  .toast {
+    position: fixed;
+    top: 80px;
+    right: 20px;
+    padding: 12px 24px;
+    border-radius: 4px;
+    color: white;
+    z-index: 1000;
+    font-size: 16px;
 
-      input {
-        width: 0;
-        opacity: 0;
-        visibility: hidden;
-        transition: 0.3s ease-in-out;
-        padding: 0.3rem 0.5rem;
-        border: none;
-        border-radius: 4px;
-        font-size: 1rem;
-      }
+    &.success {
+      background: #2ecc71;
+    }
 
-      &.show input {
-        width: 150px;
-        opacity: 1;
-        visibility: visible;
-        background-color: white;
-        color: black;
-      }
+    &.error {
+      background: #e74c3c;
     }
   }
 `;

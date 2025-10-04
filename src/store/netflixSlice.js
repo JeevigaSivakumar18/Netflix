@@ -9,24 +9,26 @@ const initialState = {
   error: null,
 };
 
-// 🔹 Thunks (Firestore-backed)
 // Fetch all movie documents from the 'movies' collection in Firestore
 export const fetchMoviesFromFirestore = createAsyncThunk(
   "netflix/fetchFromFirestore",
-  async () => {
+  async (_, thunkAPI) => {
     try {
       const col = collection(db, "movies");
       const snapshot = await getDocs(col);
       const movies = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      // debug: size and first few elements
+      console.debug("fetchMoviesFromFirestore -> total:", snapshot.size);
+      if (movies.length > 0) console.debug("fetchMoviesFromFirestore -> sample:", movies.slice(0, 3));
       return movies;
     } catch (err) {
-      console.error("fetchMoviesFromFirestore error:", err.message);
-      return [];
+      console.error("fetchMoviesFromFirestore error:", err?.message || err);
+      // propagate error for rejected action (so UI can show it)
+      return thunkAPI.rejectWithValue(err?.message || "Failed to fetch movies");
     }
   }
 );
 
-// 🔹 Slice
 const netflixSlice = createSlice({
   name: "netflix",
   initialState,
@@ -57,7 +59,7 @@ const netflixSlice = createSlice({
       })
       .addCase(fetchMoviesFromFirestore.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error?.message || "Failed to load movies";
+        state.error = action.payload || action.error?.message || "Failed to load movies";
         state.movies = [];
       });
   },

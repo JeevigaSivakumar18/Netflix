@@ -1,44 +1,48 @@
 import React from "react";
-import { useSelector } from "react-redux";
 import CardSlider from "./CardSlider";
 import Loading from "./Loading";
 import ErrorMessage from "./ErrorMessage";
+import PropTypes from "prop-types";
 
+function Slider({ movies = [], loading = false, error = null }) {
+  if (!Array.isArray(movies)) movies = [];
 
-// categories constant removed — we derive categories from Firestore-loaded movies
+  // Deduplicate movies by tmdbId
+  const uniqueMovies = Array.from(new Map(movies.map(m => [m.tmdbId, m])).values());
 
-function Slider() {
-  const movies = useSelector((state) => state.netflix.movies);
-  const loading = useSelector((state) => state.netflix.loading);
-  const error = useSelector((state) => state.netflix.error);
+  // Define categories exactly as in your seed data
+  const categories = {
+    Trending: [],
+    "New Releases": [],
+    Blockbusters: [],
+    Action: [],
+    Epics: [],
+  };
 
-  // Previously this component fetched multiple categories via external API.
-  // With Firestore as the single backend we instead derive simple category
-  // slices from the loaded `movies` array.
-
-  // Debug log to see what data we have
-  // minimal debug
-  // console.log("Movies by category:", moviesByCategory);
-
-  // derive simple categories from the firestore-loaded movies
-  const all = Array.isArray(movies) ? movies : [];
-  const trending = all.slice(0, 10);
-  const newReleases = all.slice(10, 20);
-  const blockbuster = all.slice(20, 30);
-  const action = all.filter((m) => (m.genres || []).includes("Action")).slice(0, 10);
-  const epics = all.filter((m) => (m.genres || []).includes("Epic")).slice(0, 10);
+  // Assign each movie to its category
+  uniqueMovies.forEach(movie => {
+    const cat = movie.category;
+    if (categories[cat]) {
+      categories[cat].push(movie);
+    }
+  });
 
   return (
     <>
       {loading && <Loading />}
       {error && <ErrorMessage message={error} />}
-      <CardSlider title="Trending" data={trending} />
-      <CardSlider title="New Releases" data={newReleases} />
-      <CardSlider title="Blockbuster Movies" data={blockbuster} />
-      <CardSlider title="Action Movies" data={action} />
-      <CardSlider title="Epics" data={epics} />
+
+      {Object.entries(categories).map(([title, arr]) =>
+        arr.length > 0 ? <CardSlider key={title} title={title} movies={arr} /> : null
+      )}
     </>
   );
 }
+
+Slider.propTypes = {
+  movies: PropTypes.array,
+  loading: PropTypes.bool,
+  error: PropTypes.any,
+};
 
 export default Slider;
